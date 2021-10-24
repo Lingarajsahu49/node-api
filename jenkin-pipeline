@@ -1,0 +1,42 @@
+pipeline {
+    agent any
+    environment {
+        AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+        AWS_DEFAULT_REGION = 'ap-south-1'
+    }
+
+    stages {
+        stage('pulling code') {
+            steps {
+                git 'https://hack2hire84:5qLrdHDRpJZ7CGfSn4AJ@bitbucket.org/hack2hire84/backend.git'
+            }
+        }
+        stage('building') {
+            steps {
+                sh '''
+                    mvn validate
+                    mvn compile
+                    mvn package
+                    mvn verify
+                    mvn install
+                '''
+            }
+        }
+        stage('deploying jar to s3') {
+            steps {
+                sh '''
+                    zip lambda.zip target/hackathon-0.0.1-SNAPSHOT.jar
+                    aws s3 cp target/hackathon-0.0.1-SNAPSHOT.jar s3://backend-twap/hackathon-0.0.1-SNAPSHOT.jar
+                '''
+            }
+        }
+        stage('updating lambda function') {
+            steps {
+                sh '''
+                    aws lambda update-function-code --function-name backendService --region ap-south-1  --s3-bucket backend-twap --s3-key lambda.zip
+                '''
+            }
+        }
+    }
+}
